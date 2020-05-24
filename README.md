@@ -1,19 +1,9 @@
-# sudoku-solver
+# Sudoku Solver
 
-## Project setup
-```
-npm install
-```
+## Description
 
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
+This is a small web application that solves sudoku puzzles. Which would be kinda boring on its own, but it also comes with animation! Now, you can watch how different strategies work and how efficient they are. 
 
-### Compiles and minifies for production
-```
-npm run build
-```
+You can go [here](https://stache-1cf45.web.app/sudoku) to see it in action!
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+![DemoGif](https://stache-1cf45.web.app/sudoku/SudokuSolver.gif)
