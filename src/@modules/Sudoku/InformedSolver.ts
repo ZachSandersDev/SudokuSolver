@@ -1,30 +1,56 @@
-import SudokuBoard from './SudokuBoard';
+import SudokuBoard, { getValidValues } from './SudokuBoard';
 import SudokuSolver from '@/@types/SudokuSolver';
+import Vue from "vue";
 
 export default class InformedSolver implements SudokuSolver {
 
   solve(board: SudokuBoard) {
-    if (!this.checkGiven(board)) return false;
-    return this.solveLowestPossibilities(board);
+    return this.solveLowest(board);
   }
 
-  async solveSlowly(board: SudokuBoard, delay: number) {
-    if (!this.checkGiven(board)) return false;
-    return this.solveLowestPossibilitiesDelayed(board, delay);
-  }
+  /**
+  * "Solves" whichever slot on the board has the lowest number of possibilities,
+  * otherwise it's the same as the backtracking algorithm
+  *
+  * * Yields at the beginning of each recursive call
+  * * Returns true if the position is solved, or false if it cannot be solved
+  *
+  * @param board A SudokuBoard
+  */
+  private * solveLowest(board: SudokuBoard): Generator<undefined, boolean, boolean> {
 
-  private checkGiven(board: SudokuBoard): boolean {
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-        if (!board.isValid(row, col)) {
-          return false;
-        }
+    yield;
+
+    // Get the position of the slot with the lowest number of possibilities
+    const nextI = this.getLowestPossibilitiesIndex(board);
+
+    // If that was unsuccessful, return if it's good unsuccessful or bad unsuccessful 
+    if (typeof nextI == "boolean") return nextI;
+
+    const [lowRow, lowCol, lowPossible] = nextI;
+
+    // Try each possibility and see if it solves the puzzle
+    for (const possibleValue of lowPossible) {
+      Vue.set(board[lowRow], lowCol, possibleValue);
+
+      // Then check the sub-problem (is the next slot solveable?)
+      const subGen = this.solveLowest(board);
+      let iter = subGen.next();
+      while (!iter.done) {
+        yield;
+        iter = subGen.next();
       }
+
+      // If the sub-problem is solveable, then we're good to go!
+      if (iter.value) return true;
     }
-    return true;
+
+    // If we've exausted all possibilities, backtrack
+    Vue.set(board[lowRow], lowCol, 0);
+    return false;
   }
 
-  private solveLowestPossibilities(board: SudokuBoard) {
+  getLowestPossibilitiesIndex(board: SudokuBoard): [number, number, number[]] | boolean {
     let lowRow = 0;
     let lowCol = 0;
     let lowPossible: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -33,11 +59,11 @@ export default class InformedSolver implements SudokuSolver {
       for (let col = 0; col < 9; col++) {
 
         // Skip filled slots
-        if (board.slots[row][col] != 0)
+        if (board[row][col] != 0)
           continue;
 
         // Get possible values for the current slot
-        const possibleValues = board.getValidValues(row, col);
+        const possibleValues = getValidValues(board, [row, col]);
 
         // Find whatever square has the lowest number of possible values
         if (possibleValues.length < lowPossible.length) {
@@ -46,79 +72,15 @@ export default class InformedSolver implements SudokuSolver {
           lowCol = col;
         }
 
-        // If there are no answers, backtrack
+        // If there are no possibilities for a slot, bail out
         if (possibleValues.length == 0) return false;
-
       }
     }
 
     // If no empty slots were found, we should be good!
     if (lowPossible.length == 10) return true;
 
-    // Try each one and see if it solves the puzzle
-    for (const possibleValue of lowPossible) {
-      board.setSlotValue(lowRow, lowCol, possibleValue);
-
-      // Bubble successes!
-      if (this.solveLowestPossibilities(board))
-        return true;
-    }
-
-    // If we've exausted all possibilities, backtrack
-    board.emptySlot(lowRow, lowCol);
-    return false;
+    return [lowRow, lowCol, lowPossible];
   }
 
-  private async solveLowestPossibilitiesDelayed(board: SudokuBoard, delay: number) {
-    let lowRow = 0;
-    let lowCol = 0;
-    let lowPossible: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-    await this.sleep(delay)
-
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-
-        // Skip filled slots
-        if (board.slots[row][col] != 0)
-          continue;
-
-        // Get possible values for the current slot
-        const possibleValues = board.getValidValues(row, col);
-
-        // Find whatever square has the lowest number of possible values
-        if (possibleValues.length < lowPossible.length) {
-          lowPossible = possibleValues;
-          lowRow = row;
-          lowCol = col;
-        }
-
-        // If there are no answers, backtrack
-        if (possibleValues.length == 0) return false;
-
-      }
-    }
-
-    // If no empty slots were found, we should be good!
-    if (lowPossible.length == 10) return true;
-
-    // Try each one and see if it solves the puzzle
-    for (const possibleValue of lowPossible) {
-      board.setSlotValue(lowRow, lowCol, possibleValue);
-
-      // Bubble successes!
-      if (await this.solveLowestPossibilitiesDelayed(board, delay))
-        return true;
-    }
-
-    // If we've exausted all possibilities, backtrack
-    board.emptySlot(lowRow, lowCol);
-    return false;
-  }
-
-  private sleep(duration: number) {
-    return new Promise((res) =>
-      setTimeout(res, duration)
-    )
-  }
 }

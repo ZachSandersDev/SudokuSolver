@@ -1,19 +1,19 @@
 <template>
   <div class="sudoku-wrapper">
     <div class="sudoku-board">
-      <span class="row" v-for="(row, ri) in board.slots" :key="'sudokuRow' + ri">
+      <span class="row" v-for="(row, ri) in board" :key="'sudokuRow' + ri">
         <span
           v-for="(slot, ci) in row"
           :key="'sudokuSlot' + ri + ci"
           class="slot"
-          :class="['slot-' + ri + '-' + ci, slot == originalBoard.slots[ri][ci] ? 'original-value' : '']"
+          :class="['slot-' + ri + '-' + ci, slot && slot == originalBoard[ri][ci] ? 'original-value' : '']"
         >
           <input
             type="number"
             :ref="'input-' + ri + '-' + ci"
             :value="getValue(ri, ci)"
-            @focus="selected = [ri, ci]"
-            @blur="selected = [ri, ci]"
+            @focus="onFocus(ri, ci)"
+            @blur="onBlur(ri, ci)"
             @keydown="onArrow"
             @input="setValue(ri, ci, $event.target)"
           />
@@ -35,7 +35,7 @@ export default class SudokuBoardComponent extends Vue {
   selected: [number, number] = [-1, -1];
 
   getValue(row: number, col: number) {
-    return this.board.getSlotValue(row, col) || "";
+    return this.board[row][col] || "";
   }
 
   onArrow(event: KeyboardEvent) {
@@ -44,7 +44,7 @@ export default class SudokuBoardComponent extends Vue {
     // Left
     if (event.keyCode == 37) {
       event.preventDefault();
-      col -= 1;
+      col--;
     }
 
     // Right
@@ -74,13 +74,21 @@ export default class SudokuBoardComponent extends Vue {
     this.focusSelectedInput();
   }
 
+  onFocus(row: number, col: number) {
+    this.selected = [row, col];
+
+    const element = this.getSelectedInput();
+    if (!element) return;
+    element.select();
+  }
+
   onBlur(row: number, col: number) {
     if (row == this.selected[0] && col == this.selected[1]) {
       this.selected = [-1, -1];
     }
   }
 
-  focusSelectedInput() {
+  getSelectedInput() {
     let elements = this.$refs["input-" + this.selected.join("-")] as
       | HTMLInputElement[]
       | HTMLInputElement
@@ -91,16 +99,24 @@ export default class SudokuBoardComponent extends Vue {
     if (Array.isArray(elements)) element = elements[0];
     else element = elements;
 
+    return element;
+  }
+
+  focusSelectedInput() {
+    const element = this.getSelectedInput();
+    if (!element) return;
     element.focus();
+    element.select();
   }
 
   setValue(row: number, col: number, input: HTMLInputElement) {
     const numValue = Number(input.value) % 10;
     if (numValue > 9 || numValue < 1) {
-      this.board.emptySlot(row, col);
+      this.$set(this.board[row], col, 0);
       return;
     }
-    this.board.setSlotValue(row, col, numValue);
+
+    this.$set(this.board[row], col, numValue);
   }
 }
 </script>
@@ -156,7 +172,7 @@ export default class SudokuBoardComponent extends Vue {
 
 .original-value {
   input {
-    color: red;
+    background-color: rgba(blue, .3);
   }
 }
 
